@@ -33,7 +33,7 @@ def check_code(message):
     chat_id = message.chat.id
 
     if message.text.strip() == GIFT_CODE:
-        bot.send_message(chat_id, "✅ Код верный!\nНапишите свой юзернейм:")
+        bot.send_message(chat_id, "✅ Код верный!\nНапишите свой юзернейм без @:")
         bot.register_next_step_handler_by_chat_id(chat_id, save_username)
     else:
         bot.send_message(chat_id, "❌ Код неверный. Попробуйте ещё раз:")
