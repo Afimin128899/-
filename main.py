@@ -11,8 +11,8 @@ from aiogram.types import (
 )
 
 # ================== CONFIG ==================
-API_TOKEN = "ТОКЕН_БОТА"
-ADMIN_ID = 123456789
+API_TOKEN = "8593306321:AAFP3lo0Rn2Mae36mwt77ShiLQS9zYFfyEo"
+ADMIN_ID = 8332885829
 
 START_BALANCE = 10
 BET = 3
