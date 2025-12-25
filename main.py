@@ -1,264 +1,64 @@
-import asyncio
-import logging
-import hashlib
-import random
-import string
+import telebot
+from telebot import types
 
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import (
-    Message, CallbackQuery,
-    InlineKeyboardMarkup, InlineKeyboardButton
-)
+# Токен вашего бота
+TOKEN = 'ВАШ_ТОКЕН_ЗДЕСЬ'
+bot = telebot.TeleBot(TOKEN)
 
-# ================== CONFIG ==================
-API_TOKEN = "8593306321:AAFP3lo0Rn2Mae36mwt77ShiLQS9zYFfyEo"
-ADMIN_ID = 8332885829
+# Фиксированный код подарка
+GIFT_CODE = "#Code5516#116"
 
-START_BALANCE = 10
-BET = 3
-# ============================================
+# Словарь для отслеживания пользователей и их юзернеймов
+activated_users = {}
 
-logging.basicConfig(level=logging.INFO)
+# Стартовое сообщение
+@bot.message_handler(commands=['start'])
+def start(message):
+    chat_id = message.chat.id
+    text = "🎉 С Новым годом! Вот твой подарок 🎁"
 
-bot = Bot(API_TOKEN)
-dp = Dispatcher()
+    # Кнопка «Получить подарок»
+    markup = types.InlineKeyboardMarkup()
+    button = types.InlineKeyboardButton("Получить подарок", callback_data='get_gift')
+    markup.add(button)
 
-balances = {}
-games = {}
-checks = {}
+    bot.send_message(chat_id, text, reply_markup=markup)
 
-# ================== UTILS ===================
-def sha256(t: str) -> str:
-    return hashlib.sha256(t.encode()).hexdigest()
+# Обработка нажатия кнопки
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    chat_id = call.message.chat.id
 
-def gen_code():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-
-def get_balance(uid):
-    return balances.get(uid, START_BALANCE)
-
-def add_balance(uid, amt):
-    balances[uid] = get_balance(uid) + amt
-
-def sub_balance(uid, amt):
-    if get_balance(uid) >= amt:
-        balances[uid] -= amt
-        return True
-    return False
-
-# ================== CARDS ===================
-def deck():
-    r = ['2','3','4','5','6','7','8','9','10','J','Q','K','A']
-    s = ['♠','♥','♦','♣']
-    return [x+y for x in r for y in s]
-
-def shuffle(d, seed):
-    d = d[:]
-    out = []
-    for i in range(len(d)):
-        h = sha256(seed + str(i))
-        out.append(d.pop(int(h, 16) % len(d)))
-    return out
-
-def value(hand):
-    v, a = 0, 0
-    for c in hand:
-        r = c[:-1]
-        if r in ['J','Q','K']:
-            v += 10
-        elif r == 'A':
-            v += 11
-            a += 1
+    if call.data == 'get_gift':
+        if chat_id in activated_users:
+            bot.send_message(chat_id, "⚠️ Вы уже активировали код!")
         else:
-            v += int(r)
-    while v > 21 and a:
-        v -= 10
-        a -= 1
-    return v
+            bot.send_message(chat_id, "Введите код:")
+            bot.register_next_step_handler_by_chat_id(chat_id, check_code)
 
-# ================== KEYBOARDS ===============
-def main_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🃏 Играть", callback_data="play"),
-            InlineKeyboardButton(text="👤 Профиль", callback_data="profile")
-        ],
-        [
-            InlineKeyboardButton(text="💳 Активировать чек", callback_data="check")
-        ]
-    ])
+# Функция проверки кода
+def check_code(message):
+    chat_id = message.chat.id
+    user_code = message.text.strip()
 
-def game_kb(can_double=True):
-    kb = [
-        [
-            InlineKeyboardButton(text="➕ Взять", callback_data="hit"),
-            InlineKeyboardButton(text="⏹ Стоп", callback_data="stand")
-        ]
-    ]
-    if can_double:
-        kb.append([
-            InlineKeyboardButton(text="✖️2 Удвоить", callback_data="double")
-        ])
-    return InlineKeyboardMarkup(inline_keyboard=kb)
-
-# ================== START ===================
-@dp.message(F.text == "/start")
-async def start(m: Message):
-    balances.setdefault(m.from_user.id, START_BALANCE)
-    await m.answer("🎰 Казино-бот\n\nВыбери действие:", reply_markup=main_kb())
-
-# ================== PROFILE =================
-@dp.callback_query(F.data == "profile")
-async def profile(c: CallbackQuery):
-    await c.message.edit_text(
-        f"👤 Профиль\n\n"
-        f"🆔 ID: {c.from_user.id}\n"
-        f"⭐ Баланс: {get_balance(c.from_user.id)}",
-        reply_markup=main_kb()
-    )
-    await c.answer()
-
-# ================== BLACKJACK ===============
-@dp.callback_query(F.data == "play")
-async def play(c: CallbackQuery):
-    uid = c.from_user.id
-    if not sub_balance(uid, BET):
-        await c.answer("❌ Недостаточно ⭐", show_alert=True)
+    if chat_id in activated_users:
+        bot.send_message(chat_id, "⚠️ Вы уже активировали код!")
         return
 
-    seed = sha256(str(random.random()))
-    d = shuffle(deck(), seed)
-
-    p = [d.pop(), d.pop()]
-    dl = [d.pop(), d.pop()]
-
-    games[uid] = {
-        "deck": d,
-        "p": p,
-        "d": dl,
-        "seed": seed,
-        "bet": BET,
-        "double": True
-    }
-
-    await c.message.edit_text(
-        f"🔐 Hash:\n`{sha256(seed)}`\n\n"
-        f"🃏 Ты: {p} ({value(p)})\n"
-        f"🃏 Дилер: {dl[0]} ?",
-        parse_mode="Markdown",
-        reply_markup=game_kb()
-    )
-    await c.answer()
-
-@dp.callback_query(F.data == "hit")
-async def hit(c: CallbackQuery):
-    g = games[c.from_user.id]
-    g["double"] = False
-    g["p"].append(g["deck"].pop())
-
-    if value(g["p"]) > 21:
-        await bust(c)
+    if user_code == GIFT_CODE:
+        bot.send_message(chat_id, "✅ Код верный! Теперь напишите свой юзернейм, чтобы получить подарок:")
+        bot.register_next_step_handler_by_chat_id(chat_id, get_username)
     else:
-        await c.message.edit_text(
-            f"🃏 Ты: {g['p']} ({value(g['p'])})\n"
-            f"🃏 Дилер: {g['d'][0]} ?",
-            reply_markup=game_kb(False)
-        )
-        await c.answer()
+        bot.send_message(chat_id, "❌ Код неверный. Попробуйте ещё раз.")
+        bot.register_next_step_handler_by_chat_id(chat_id, check_code)
 
-@dp.callback_query(F.data == "stand")
-async def stand(c: CallbackQuery):
-    await finish(c)
+# Функция для получения юзернейма
+def get_username(message):
+    chat_id = message.chat.id
+    username = message.text.strip()
 
-@dp.callback_query(F.data == "double")
-async def double(c: CallbackQuery):
-    g = games[c.from_user.id]
-    if not g["double"] or not sub_balance(c.from_user.id, g["bet"]):
-        await c.answer("❌ Нельзя", show_alert=True)
-        return
+    activated_users[chat_id] = username  # Сохраняем юзернейм пользователя
+    bot.send_message(chat_id, f"🎉 Спасибо! Юзернейм @{username} зарегистрирован, вы получили 100 ⭐ Telegram!")
 
-    g["bet"] *= 2
-    g["p"].append(g["deck"].pop())
-
-    if value(g["p"]) > 21:
-        await bust(c)
-    else:
-        await finish(c)
-
-async def finish(c: CallbackQuery):
-    g = games[c.from_user.id]
-
-    while value(g["d"]) < 17:
-        g["d"].append(g["deck"].pop())
-
-    p, d = value(g["p"]), value(g["d"])
-
-    if d > 21 or p > d:
-        add_balance(c.from_user.id, g["bet"] * 2)
-        r = "🎉 Победа"
-    elif p == d:
-        add_balance(c.from_user.id, g["bet"])
-        r = "🤝 Ничья"
-    else:
-        r = "❌ Проигрыш"
-
-    await c.message.edit_text(
-        f"{r}\n\n"
-        f"🃏 Ты: {g['p']} ({p})\n"
-        f"🃏 Дилер: {g['d']} ({d})\n\n"
-        f"🔓 Seed:\n`{g['seed']}`\n"
-        f"⭐ Баланс: {get_balance(c.from_user.id)}",
-        parse_mode="Markdown",
-        reply_markup=main_kb()
-    )
-    del games[c.from_user.id]
-    await c.answer()
-
-async def bust(c: CallbackQuery):
-    g = games[c.from_user.id]
-    await c.message.edit_text(
-        f"💥 Перебор\n\n🃏 {g['p']}\n\n🔓 `{g['seed']}`",
-        parse_mode="Markdown",
-        reply_markup=main_kb()
-    )
-    del games[c.from_user.id]
-    await c.answer()
-
-# ================== CHECKS ==================
-@dp.callback_query(F.data == "check")
-async def ask_check(c: CallbackQuery):
-    await c.message.edit_text("💳 Введи чек код:")
-    await c.answer()
-
-@dp.message()
-async def activate_check(m: Message):
-    if m.text in checks:
-        amt = checks.pop(m.text)
-        add_balance(m.from_user.id, amt)
-        await m.answer(f"✅ Чек активирован: +{amt} ⭐", reply_markup=main_kb())
-
-# ================== ADMIN ===================
-@dp.message(F.text.startswith("/add"))
-async def admin_add(m: Message):
-    if m.from_user.id != ADMIN_ID:
-        return
-    _, uid, amt = m.text.split()
-    add_balance(int(uid), int(amt))
-    await m.answer("✅ Валюта выдана")
-
-@dp.message(F.text.startswith("/check"))
-async def admin_check(m: Message):
-    if m.from_user.id != ADMIN_ID:
-        return
-    _, amt = m.text.split()
-    code = gen_code()
-    checks[code] = int(amt)
-    await m.answer(f"💳 Чек: `{code}` (+{amt} ⭐)", parse_mode="Markdown")
-
-# ================== RUN =====================
-async def main():
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-    
+# Запуск бота
+bot.infinity_polling()
