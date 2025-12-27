@@ -1,4 +1,4 @@
-import telebot
+usernamemememeйм telebot
 from telebot import types
 
 TOKEN = "8500994183:AAF6VjQKSqaZY74OkaFHYdTNHYGLg9nFKRw"
@@ -72,7 +72,7 @@ def save_username(message):
 
     safe_send(
         chat_id,
-        f"🎉 Спасибо! Юзернейм {username} принят.\nВы получили 50 ⭐ Telegram! До 12:00 30 декабря 2025 года.В    )
+        f"🎉 Спасибо! Юзернейм @{username} принят.\nВы получили 50 ⭐ Telegram! До 12:00 30 декабря 2025 года.В    )
 
 # ===== БАН =====
 @bot.message_handler(commands=['ban'])
