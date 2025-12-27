@@ -1,7 +1,8 @@
-usernamemememeйм telebot
+import telebot
 from telebot import types
 
-TOKEN = "8500994183:AAF6VjQKSqaZY74OkaFHYdTNHYGLg9nFKRw"
+# ===== НАСТРОЙКИ =====
+TOKEN = "ВАШ_ТОКЕН_ЗДЕСЬ"
 bot = telebot.TeleBot(TOKEN)
 
 ADMIN_ID = 548858090
@@ -10,11 +11,12 @@ GIFT_CODE = "#Code5516#116"
 activated_users = {}
 banned_users = {}
 
+# ===== БЕЗОПАСНАЯ ОТПРАВКА =====
 def safe_send(chat_id, text, markup=None):
     try:
         bot.send_message(chat_id, text, reply_markup=markup)
     except:
-        pass  # пользователь заблокировал бота
+        pass
 
 # ===== START =====
 @bot.message_handler(commands=['start'])
@@ -63,7 +65,7 @@ def check_code(message):
         safe_send(chat_id, "❌ Код неверный. Попробуйте ещё раз:")
         bot.register_next_step_handler_by_chat_id(chat_id, check_code)
 
-# ===== ЮЗЕРНЕЙМ =====
+# ===== СОХРАНЕНИЕ ЮЗЕРНЕЙМА =====
 def save_username(message):
     chat_id = message.chat.id
     username = message.text.replace("@", "").strip()
@@ -72,7 +74,10 @@ def save_username(message):
 
     safe_send(
         chat_id,
-        f"🎉 Спасибо! Юзернейм @{username} принят.\nВы получили 50 ⭐ Telegram! До 12:00 30 декабря 2025 года.В    )
+        f"🎉 Спасибо! Юзернейм @{username} принят.\n\n"
+        f"⭐ Вы получили 50 ⭐ Telegram\n"
+        f"⏰ Срок действия: до 12:00 30 декабря 2025 года"
+    )
 
 # ===== БАН =====
 @bot.message_handler(commands=['ban'])
@@ -82,7 +87,6 @@ def ban_user(message):
         return
 
     parts = message.text.split(maxsplit=2)
-
     if len(parts) < 3:
         safe_send(message.chat.id, "❗ Использование:\n/ban USER_ID причина")
         return
@@ -97,3 +101,4 @@ def ban_user(message):
 
 # ===== ЗАПУСК =====
 bot.infinity_polling(skip_pending=True)
+    
