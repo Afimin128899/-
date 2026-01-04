@@ -11,6 +11,7 @@ ADMIN_ID = 548858090
 codes = {}
 activated_users = {}
 banned_users = {}
+all_users = set()  # для рассылки
 
 # ===== SAFE SEND =====
 def safe_send(chat_id, text, markup=None):
@@ -23,15 +24,16 @@ def safe_send(chat_id, text, markup=None):
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
+    all_users.add(chat_id)
 
     if chat_id in banned_users:
         safe_send(chat_id, f"🚫 Вы заблокированы\nПричина: {banned_users[chat_id]}")
         return
 
     text = (
-        "🎁 **Хочешь получить подарок?**\n\n"
-        "Ты можешь получить ⭐ **15 звёзд Telegram бесплатно** за простое задание.\n\n"
-        "📌 **Что нужно сделать:**\n"
+        "🎁 Хочешь получить подарок?\n\n"
+        "Ты можешь получить ⭐ 15 звёзд Telegram бесплатно за простое задание.\n\n"
+        "📌 Что нужно сделать:\n"
         "• Написать в ЛС 👉 @ShardenFoot\n"
         "• Получить задание\n"
         "• Выполнить его и получить код\n"
@@ -48,6 +50,7 @@ def start(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     chat_id = call.message.chat.id
+    all_users.add(chat_id)
 
     if chat_id in banned_users:
         safe_send(chat_id, f"🚫 Вы заблокированы\nПричина: {banned_users[chat_id]}")
@@ -63,6 +66,8 @@ def callback(call):
 # ===== CHECK CODE =====
 def check_code(message):
     chat_id = message.chat.id
+    all_users.add(chat_id)
+
     code = message.text.strip()
 
     if code not in codes:
@@ -90,6 +95,8 @@ def check_code(message):
 # ===== SAVE USERNAME =====
 def save_username(message):
     chat_id = message.chat.id
+    all_users.add(chat_id)
+
     username = message.text.replace("@", "").strip()
     stars = activated_users[chat_id]["stars"]
 
@@ -111,7 +118,8 @@ def admin_panel(message):
         "👑 **Админ-панель**\n\n"
         "/addcode КОД ЗВЁЗДЫ АКТИВАЦИИ\n"
         "/codes — список кодов\n"
-        "/ban ID причина"
+        "/ban ID причина\n"
+        "/broadcast текст — рассылка всем"
     )
     safe_send(message.chat.id, text)
 
@@ -123,7 +131,7 @@ def add_code(message):
 
     parts = message.text.split()
     if len(parts) != 4:
-        safe_send(message.chat.id, "❗ Использование:\n/addcode КОД ЗВЁЗДЫ АКТИВАЦИИ")
+        safe_send(message.chat.id, "❗ /addcode КОД ЗВЁЗДЫ АКТИВАЦИИ")
         return
 
     code = parts[1]
@@ -148,6 +156,27 @@ def list_codes(message):
         text += f"{c} → ⭐ {d['stars']} | 🔁 {d['uses']}\n"
 
     safe_send(message.chat.id, text)
+
+# ===== BROADCAST =====
+@bot.message_handler(commands=['broadcast'])
+def broadcast(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    text = message.text.replace("/broadcast", "").strip()
+    if not text:
+        safe_send(message.chat.id, "❗ Использование:\n/broadcast текст")
+        return
+
+    sent = 0
+    for user_id in all_users:
+        try:
+            bot.send_message(user_id, text)
+            sent += 1
+        except:
+            pass
+
+    safe_send(message.chat.id, f"✅ Рассылка отправлена\n👥 Получили: {sent}")
 
 # ===== BAN =====
 @bot.message_handler(commands=['ban'])
