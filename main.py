@@ -1,6 +1,6 @@
 import asyncio
 import random
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -24,9 +24,11 @@ async def check_sub(user_id: int):
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎰 Крутить", callback_data="spin")]
-    ])
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🎰 Крутить", callback_data="spin")]
+        ]
+    )
 
     await message.answer(
         "🎰 Слот-розыгрыш\n\n"
@@ -34,11 +36,11 @@ async def start(message: types.Message):
         "💵 Приз: 0.33$\n"
         "👤 1 аккаунт = 1 прокрут\n\n"
         f"📢 Подпишись на канал: {CHANNEL_USERNAME}",
-        reply_markup=kb
+        reply_markup=keyboard
     )
 
-@dp.callback_query(lambda c: c.data == "spin")
-async def spin(call: types.CallbackQuery):
+@dp.callback_query(F.data == "spin")
+async def spin_handler(call: types.CallbackQuery):
     user_id = call.from_user.id
 
     if user_id in used_spins:
@@ -80,6 +82,7 @@ async def spin(call: types.CallbackQuery):
     await call.answer()
 
 async def main():
+    print("Бот запущен")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
