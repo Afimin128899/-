@@ -1,13 +1,15 @@
+import asyncio
 import random
-from aiogram import Bot, Dispatcher, executor, types
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 BOT_TOKEN = "8500994183:AAFDTPI7vaxMT1KS_33dJb1INn7_JIQHU8g"
 ADMIN_ID = 548858090
 CHANNEL_USERNAME = "@Sband_Gift_Giveaway"
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
+bot = Bot(BOT_TOKEN)
+dp = Dispatcher()
 
 used_spins = set()
 winners = []
@@ -16,16 +18,17 @@ def spin_slots():
     symbols = ["🍒", "🍋", "🍉", "⭐", "7️⃣"]
     return [random.choice(symbols) for _ in range(3)]
 
-async def check_sub(user_id):
+async def check_sub(user_id: int):
     member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
-    return member.status in ["member", "administrator", "creator"]
+    return member.status in ("member", "administrator", "creator")
 
-@dp.message_handler(commands=["start"])
-async def start(msg: types.Message):
-    kb = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("🎰 Крутить", callback_data="spin")
-    )
-    await msg.answer(
+@dp.message(Command("start"))
+async def start(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎰 Крутить", callback_data="spin")]
+    ])
+
+    await message.answer(
         "🎰 Слот-розыгрыш\n\n"
         "🎯 Выигрыш ТОЛЬКО если выпадет 7️⃣7️⃣7️⃣\n"
         "💵 Приз: 0.33$\n"
@@ -34,7 +37,7 @@ async def start(msg: types.Message):
         reply_markup=kb
     )
 
-@dp.callback_query_handler(text="spin")
+@dp.callback_query(lambda c: c.data == "spin")
 async def spin(call: types.CallbackQuery):
     user_id = call.from_user.id
 
@@ -53,7 +56,7 @@ async def spin(call: types.CallbackQuery):
 
     if result == ["7️⃣", "7️⃣", "7️⃣"] and len(winners) < 3:
         winners.append(user_id)
-        text += "🎉 ПОЗДРАВЛЯЮ!\nТы выиграл 0.33$"
+        text += "🎉 ПОБЕДА! Ты выиграл 0.33$"
 
         await bot.send_message(
             ADMIN_ID,
@@ -76,4 +79,9 @@ async def spin(call: types.CallbackQuery):
     await call.message.answer(text)
     await call.answer()
 
-executor.start_polling(dp)
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
