@@ -1,4 +1,0 @@
-aiogram==3.4.1
-python-dotenv==1.0.1
-asyncpg==0.29.0
-flyerapi==1.0.3
