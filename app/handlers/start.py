@@ -30,7 +30,25 @@ async def start_handler(message: Message, db):
                     ref_id
                 )
 
+    async with db.acquire() as conn:
+        tasks = await conn.fetch(
+            """
+            SELECT t.title, t.reward, ut.status
+            FROM tasks t
+            LEFT JOIN user_tasks ut
+            ON ut.task_key=t.task_key AND ut.tg_id=$1
+            """,
+            message.from_user.id
+        )
+
+    text = "👋 Добро пожаловать!\n\n"
+    text += "Для доступа нужно выполнить задания:\n\n"
+    text += "✅ <b>Задания</b>\n\n"
+    for task in tasks:
+        status = "✅" if task["status"] == "done" else "❌"
+        text += f"{status} {task['title']} (+{task['reward']}⭐)\n"
+
     await message.answer(
-        "👋 Добро пожаловать!",
+        text,
         reply_markup=main_menu(message.from_user.id in ADMIN_IDS)
     )

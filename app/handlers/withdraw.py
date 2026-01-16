@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
-from app.keyboards.withdraw import withdraw_menu
+from app.keyboards.withdraw import withdraw_menu, withdraw_confirm
 from app.keyboards.common import back_kb
 from app.config import ADMIN_IDS
 
@@ -13,9 +13,17 @@ async def withdraw_menu_handler(call: CallbackQuery):
         reply_markup=withdraw_menu()
     )
 
-@router.callback_query(F.data.startswith("withdraw:"))
+@router.callback_query(F.data.startswith("withdraw:select:"))
+async def withdraw_select(call: CallbackQuery):
+    amount = int(call.data.split(":")[2])
+    await call.message.edit_text(
+        f"Вы выбрали вывод <b>{amount} ⭐</b>.\nПодтвердить заявку?",
+        reply_markup=withdraw_confirm(amount)
+    )
+
+@router.callback_query(F.data.startswith("withdraw:confirm:"))
 async def withdraw_request(call: CallbackQuery, db):
-    amount = int(call.data.split(":")[1])
+    amount = int(call.data.split(":")[2])
 
     async with db.acquire() as conn:
         balance = await conn.fetchval(
